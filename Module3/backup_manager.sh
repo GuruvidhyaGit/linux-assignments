@@ -1,20 +1,20 @@
 #!/bin/bash
 
-
+# Get command-line arguments
 dir_path="$1"
 backup_path="$2"
 file_ext="$3"
 
-# Check if arguments are provided
+
 if [[ -z "$dir_path" || -z "$backup_path" || -z "$file_ext" ]]; then
     echo "Usage: $0 <source_dir> <backup_dir> <file_extension>"
     exit 1
 fi
 
-# Change to source directory
+
 cd "$dir_path" || { echo "Cannot access source directory"; exit 1; }
 
-
+# Get list of files with given extension
 files=(*."$file_ext")
 
 # Check if any files found
@@ -28,7 +28,7 @@ if [[ ! -d "$backup_path" ]]; then
     mkdir -p "$backup_path" || { echo "Cannot create backup directory"; exit 1; }
 fi
 
-# Initialize backup count and total size
+# Initialize counters
 export BACKUP_COUNT=0
 total_size=0
 
@@ -39,28 +39,21 @@ for file in "${files[@]}"; do
     echo "$file ($size bytes)"
 done
 
-# Backup files
+
 for file in "${files[@]}"; do
     src_file="$dir_path/$file"
     dest_file="$backup_path/$file"
 
-    # If file exists in backup, check timestamp
-    if [[ -f "$dest_file" ]]; then
-        src_time=$(stat -c %Y "$src_file")
-        dest_time=$(stat -c %Y "$dest_file")
-        if [[ "$src_time" -le "$dest_time" ]]; then
-            continue
-        fi
+    # Backup if destination doesn't exist or source is newer
+    if [[ ! -f "$dest_file" || "$src_file" -nt "$dest_file" ]]; then
+        cp "$src_file" "$dest_file" && {
+            BACKUP_COUNT=$((BACKUP_COUNT + 1))
+            total_size=$((total_size + $(stat -c %s "$src_file")))
+        }
     fi
-
-    # Copy file and update counters
-    cp "$src_file" "$dest_file" && {
-        BACKUP_COUNT=$((BACKUP_COUNT + 1))
-        total_size=$((total_size + $(stat -c %s "$src_file")))
-    }
 done
 
-# Generate simplified report
+
 report_file="$backup_path/backup_report.log"
 {
     echo "Total files backed up: $BACKUP_COUNT"
